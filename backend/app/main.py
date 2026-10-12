@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 
+from app.api.routes.tasks import router as tasks_router
+
+
 app = FastAPI()
 
-
-@app.get("/")
-def home():
-    return {"message": "Backend funcionando"}
+app.include_router(tasks_router)
