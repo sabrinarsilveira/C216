@@ -1,5 +1,7 @@
 .PHONY: help install test lint format run clean clean-cache \
-        up up-build down build logs logs-api ps shell
+        up up-build down build logs logs-api ps shell \
+        frontend-install frontend-dev frontend-lint frontend-format \
+        frontend-check frontend-test frontend-test-e2e frontend-build check-all
 
 PYTEST := poetry run pytest
 UVICORN := poetry run uvicorn
@@ -68,3 +70,29 @@ shell:
 clean:
 	cd backend && rm -rf .pytest_cache .ruff_cache
 	docker compose down -v
+
+frontend-install:
+	npm --prefix frontend ci
+
+frontend-dev:
+	npm --prefix frontend run dev
+
+frontend-lint:
+	npm --prefix frontend run lint
+
+frontend-format:
+	npm --prefix frontend run format
+
+frontend-check:
+	npm --prefix frontend run lint && npm --prefix frontend run format:check
+
+frontend-test:
+	npm --prefix frontend run test
+
+frontend-test-e2e:
+	npm --prefix frontend run test:e2e
+
+frontend-build:
+	npm --prefix frontend run build
+
+check-all: lint test frontend-check frontend-test frontend-build frontend-test-e2e
