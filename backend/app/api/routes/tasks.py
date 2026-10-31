@@ -1,20 +1,28 @@
-from fastapi import APIRouter, HTTPException
+from typing import Annotated
 
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.database.session import get_db
 from app.schemas.task import Task, TaskCreate, TaskUpdate
 from app.services import task as service
 
+DbSession = Annotated[Session, Depends(get_db)]
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
 @router.get("/", response_model=list[Task])
-def list_tasks(completed: bool | None = None):
-    return service.list_tasks(completed)
+def list_tasks(
+    db: DbSession,
+    completed: bool | None = None,
+):
+    return service.list_tasks(db, completed)
 
 
 @router.get("/{task_id}", response_model=Task)
-def get_task(task_id: int):
-    task = service.get_task(task_id)
+def get_task(task_id: int, db: DbSession):
+    task = service.get_task(db, task_id)
 
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -23,13 +31,17 @@ def get_task(task_id: int):
 
 
 @router.post("/", response_model=Task, status_code=201)
-def create_task(data: TaskCreate):
-    return service.create_task(data)
+def create_task(data: TaskCreate, db: DbSession):
+    return service.create_task(db, data)
 
 
 @router.put("/{task_id}", response_model=Task)
-def update_task(task_id: int, data: TaskCreate):
-    task = service.update_task(task_id, data)
+def update_task(
+    task_id: int,
+    data: TaskCreate,
+    db: DbSession,
+):
+    task = service.update_task(db, task_id, data)
 
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -38,8 +50,12 @@ def update_task(task_id: int, data: TaskCreate):
 
 
 @router.patch("/{task_id}", response_model=Task)
-def patch_task(task_id: int, data: TaskUpdate):
-    task = service.patch_task(task_id, data)
+def patch_task(
+    task_id: int,
+    data: TaskUpdate,
+    db: DbSession,
+):
+    task = service.patch_task(db, task_id, data)
 
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -48,8 +64,8 @@ def patch_task(task_id: int, data: TaskUpdate):
 
 
 @router.delete("/{task_id}", status_code=204)
-def delete_task(task_id: int):
-    task = service.delete_task(task_id)
+def delete_task(task_id: int, db: DbSession):
+    deleted = service.delete_task(db, task_id)
 
-    if task is None:
+    if not deleted:
         raise HTTPException(status_code=404, detail="Task not found")

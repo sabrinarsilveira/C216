@@ -1,30 +1,58 @@
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
+from app.database.base import Base
+from app.database.session import get_db
 from app.main import app
-from app.services import task as service
+from app.models.task import Task  # noqa: F401
 
 
-client = TestClient(app)
+@pytest.fixture
+def client():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+
+    Base.metadata.create_all(bind=engine)
+
+    TestingSessionLocal = sessionmaker(
+        bind=engine,
+        autoflush=False,
+        expire_on_commit=False,
+    )
+
+    def override_get_db():
+        with TestingSessionLocal() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        engine.dispose()
 
 
-@pytest.fixture(autouse=True)
-def reset_tasks():
-    service.tasks.clear()
-    service.next_id = 1
-
-
-def test_create_task():
+def test_create_task(client):
     response = client.post(
         "/tasks/",
-        json={"title": "Estudar FastAPI", "completed": False},
+        json={"title": "Nova tarefa", "completed": False},
     )
 
     assert response.status_code == 201
-    assert response.json()["title"] == "Estudar FastAPI"
+    assert response.json()["title"] == "Nova tarefa"
+    assert response.json()["completed"] is False
+    assert isinstance(response.json()["id"], int)
 
 
-def test_list_tasks():
+def test_list_tasks(client):
     client.post("/tasks/", json={"title": "Tarefa 1"})
     client.post("/tasks/", json={"title": "Tarefa 2"})
 
@@ -34,38 +62,38 @@ def test_list_tasks():
     assert len(response.json()) == 2
 
 
-def test_get_task():
+def test_get_task(client):
     created = client.post(
         "/tasks/",
-        json={"title": "Fazer atividade"},
+        json={"title": "Buscar tarefa"},
     ).json()
 
     response = client.get(f"/tasks/{created['id']}")
 
     assert response.status_code == 200
-    assert response.json()["title"] == "Fazer atividade"
+    assert response.json()["title"] == "Buscar tarefa"
 
 
-def test_update_task():
+def test_update_task(client):
     created = client.post(
         "/tasks/",
-        json={"title": "Título antigo"},
+        json={"title": "Tarefa original"},
     ).json()
 
     response = client.put(
         f"/tasks/{created['id']}",
-        json={"title": "Título novo", "completed": True},
+        json={"title": "Tarefa atualizada", "completed": True},
     )
 
     assert response.status_code == 200
-    assert response.json()["title"] == "Título novo"
+    assert response.json()["title"] == "Tarefa atualizada"
     assert response.json()["completed"] is True
 
 
-def test_patch_task():
+def test_patch_task(client):
     created = client.post(
         "/tasks/",
-        json={"title": "Tarefa"},
+        json={"title": "Tarefa original"},
     ).json()
 
     response = client.patch(
@@ -74,21 +102,25 @@ def test_patch_task():
     )
 
     assert response.status_code == 200
+    assert response.json()["title"] == "Tarefa original"
     assert response.json()["completed"] is True
 
 
-def test_delete_task():
+def test_delete_task(client):
     created = client.post(
         "/tasks/",
-        json={"title": "Excluir"},
+        json={"title": "Tarefa para excluir"},
     ).json()
 
     response = client.delete(f"/tasks/{created['id']}")
 
     assert response.status_code == 204
 
+    get_response = client.get(f"/tasks/{created['id']}")
+    assert get_response.status_code == 404
 
-def test_filter_tasks_by_completed():
+
+def test_filter_tasks_by_completed(client):
     client.post(
         "/tasks/",
         json={"title": "Concluída", "completed": True},
@@ -102,10 +134,10 @@ def test_filter_tasks_by_completed():
 
     assert response.status_code == 200
     assert len(response.json()) == 1
-    assert response.json()[0]["completed"] is True
+    assert response.json()[0]["title"] == "Concluída"
 
 
-def test_task_not_found():
+def test_task_not_found(client):
     response = client.get("/tasks/999")
 
     assert response.status_code == 404

@@ -7,7 +7,7 @@ services:
     depends_on:
       - db
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/c216
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/c216
 
   db:
     image: postgres:16
