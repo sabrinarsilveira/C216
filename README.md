@@ -256,3 +256,20 @@ Foram realizadas as seguintes verificações locais:
 - Formatação e análise estática com Ruff sem erros.
 
 A execução do workflow no GitHub Actions deve ser confirmada após o envio da branch ao repositório remoto.
+
+## Prática 7: integração frontend, API e PostgreSQL
+
+A interface React consulta e cadastra itens pela API. Os itens são persistidos na tabela `items`; nomes repetidos recebem HTTP 409. O CRUD de tarefas em `/tasks/` continua disponível.
+
+A API aceita as origens definidas em `CORS_ORIGINS` (separadas por vírgulas). O padrão permite as URLs locais do Vite nas portas 5173. O navegador chama `VITE_API_URL`, cujo padrão é `http://localhost:8000`.
+
+Na primeira execução, copie `.env.example` para `.env` e rode:
+
+```bash
+make up-build
+make db-upgrade
+```
+
+A interface fica em http://localhost:5173 e a documentação FastAPI em http://localhost:8000/docs. Após mudar o código empacotado nos containers, use `make up-build`.
+
+Comandos de validação: `make test`, `make frontend-test`, `make frontend-check`, `make frontend-build` e `make e2e`. O E2E usa uma stack e um volume próprios (API 8001, frontend 5174) e os remove ao terminar. `make check-all` executa todas essas verificações.

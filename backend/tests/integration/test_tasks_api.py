@@ -7,6 +7,7 @@ from sqlalchemy.pool import StaticPool
 from app.database.base import Base
 from app.database.session import get_db
 from app.main import app
+from app.models.item import Item  # noqa: F401
 from app.models.task import Task  # noqa: F401
 
 
@@ -123,7 +124,7 @@ def test_delete_task(client):
 def test_filter_tasks_by_completed(client):
     client.post(
         "/tasks/",
-        json={"title": "Concluída", "completed": True},
+        json={"title": "ConcluÃ­da", "completed": True},
     )
     client.post(
         "/tasks/",
@@ -134,7 +135,7 @@ def test_filter_tasks_by_completed(client):
 
     assert response.status_code == 200
     assert len(response.json()) == 1
-    assert response.json()[0]["title"] == "Concluída"
+    assert response.json()[0]["title"] == "ConcluÃ­da"
 
 
 def test_task_not_found(client):

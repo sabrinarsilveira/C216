@@ -1,17 +1,26 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { validateItem } from "../validation";
 export function ItemForm({ onAdd }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [errors, setErrors] = useState({});
-  function submit(event) {
+  const [saving, setSaving] = useState(false);
+  async function submit(event) {
     event.preventDefault();
     const result = validateItem({ name, description });
     setErrors(result.errors);
     if (Object.keys(result.errors).length) return;
-    onAdd(result.values);
-    setName("");
-    setDescription("");
+    setSaving(true);
+    try {
+      await onAdd(result.values);
+      setName("");
+      setDescription("");
+      setErrors({});
+    } catch (error) {
+      setErrors({ submit: error.message });
+    } finally {
+      setSaving(false);
+    }
   }
   return (
     <form
@@ -36,9 +45,7 @@ export function ItemForm({ onAdd }) {
         )}
       </div>
       <div>
-        <label htmlFor="item-description">
-          {"Descri\u00e7\u00e3o (opcional)"}
-        </label>
+        <label htmlFor="item-description">Descrição (opcional)</label>
         <textarea
           id="item-description"
           value={description}
@@ -47,11 +54,17 @@ export function ItemForm({ onAdd }) {
           className="mt-1 block w-full rounded border p-2"
         />
       </div>
+      {errors.submit && (
+        <p role="alert" className="text-red-700">
+          {errors.submit}
+        </p>
+      )}
       <button
         type="submit"
+        disabled={saving}
         className="rounded bg-blue-700 px-4 py-2 text-white"
       >
-        Adicionar
+        {saving ? "Salvando..." : "Adicionar"}
       </button>
     </form>
   );
