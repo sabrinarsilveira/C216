@@ -1,57 +1,63 @@
-import pytest
+from unittest.mock import MagicMock, patch
 
 from app.schemas.task import TaskCreate, TaskUpdate
 from app.services import task as service
 
 
-@pytest.fixture(autouse=True)
-def reset_tasks():
-    service.tasks.clear()
-    service.next_id = 1
-
-
 def test_create_task():
-    data = TaskCreate(title="Estudar FastAPI")
+    db = MagicMock()
+    data = TaskCreate(title="Nova tarefa", completed=False)
+    expected = MagicMock(id=1, title="Nova tarefa", completed=False)
 
-    task = service.create_task(data)
+    with patch.object(service.repository, "create_task", return_value=expected) as mock:
+        result = service.create_task(db, data)
 
-    assert task.id == 1
-    assert task.title == "Estudar FastAPI"
-    assert task.completed is False
+    assert result is expected
+    mock.assert_called_once_with(db, data)
 
 
 def test_get_task():
-    created = service.create_task(TaskCreate(title="Fazer atividade"))
+    db = MagicMock()
+    expected = MagicMock(id=1, title="Tarefa", completed=False)
 
-    task = service.get_task(created.id)
+    with patch.object(service.repository, "get_task", return_value=expected) as mock:
+        result = service.get_task(db, 1)
 
-    assert task == created
+    assert result is expected
+    mock.assert_called_once_with(db, 1)
 
 
 def test_list_tasks():
-    service.create_task(TaskCreate(title="Tarefa 1"))
-    service.create_task(TaskCreate(title="Tarefa 2"))
+    db = MagicMock()
+    expected = [
+        MagicMock(id=1, title="Tarefa 1", completed=False),
+        MagicMock(id=2, title="Tarefa 2", completed=True),
+    ]
 
-    tasks = service.list_tasks()
+    with patch.object(service.repository, "list_tasks", return_value=expected) as mock:
+        result = service.list_tasks(db)
 
-    assert len(tasks) == 2
+    assert result is expected
+    mock.assert_called_once_with(db, None)
 
 
 def test_patch_task():
-    created = service.create_task(TaskCreate(title="Título antigo"))
+    db = MagicMock()
+    data = TaskUpdate(completed=True)
+    expected = MagicMock(id=1, title="Tarefa", completed=True)
 
-    updated = service.patch_task(
-        created.id,
-        TaskUpdate(title="Título novo"),
-    )
+    with patch.object(service.repository, "patch_task", return_value=expected) as mock:
+        result = service.patch_task(db, 1, data)
 
-    assert updated.title == "Título novo"
+    assert result is expected
+    mock.assert_called_once_with(db, 1, data)
 
 
 def test_delete_task():
-    created = service.create_task(TaskCreate(title="Excluir"))
+    db = MagicMock()
 
-    deleted = service.delete_task(created.id)
+    with patch.object(service.repository, "delete_task", return_value=True) as mock:
+        result = service.delete_task(db, 1)
 
-    assert deleted.id == created.id
-    assert service.get_task(created.id) is None
+    assert result is True
+    mock.assert_called_once_with(db, 1)
