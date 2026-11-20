@@ -164,5 +164,5 @@ O GitHub Actions executa verificações do backend e do frontend em Pull Request
 
 ## Vídeo demonstrativo
 
-Adicionar aqui o link do vídeo demonstrativo antes da entrega final.
+[Assistir ao video demonstrativo](https://www.youtube.com/watch?v=3r6r6NTqwGs)
 
