@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 compose=(docker compose -p lab-e2e -f docker-compose.e2e.yml)
 cleanup() { "${compose[@]}" down -v; }

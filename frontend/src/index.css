@@ -493,8 +493,10 @@ a {
 .column-cards {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 .application-card {
+  min-width: 0;
   background: #fff;
   border: 1px solid #eeede7;
   border-radius: 8px;
@@ -556,6 +558,8 @@ a {
   color: #ac716d;
 }
 .company-name {
+  min-width: 0;
+  flex: 1 1 0%;
   font-size: 9px;
   color: #70726b;
   font-weight: 600;
@@ -623,14 +627,20 @@ a {
   font-size: 8px;
 }
 .card-footer {
+  min-width: 0;
   border-top: 1px solid #f2f1ec;
   margin-top: 10px;
   padding-top: 8px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 6px;
 }
 .updated {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1347,6 +1357,7 @@ a {
 }
 
 button.card-arrow {
+  flex-shrink: 0;
   border: 0;
   background: transparent;
   color: #6a7e62;
