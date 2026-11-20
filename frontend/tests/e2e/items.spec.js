@@ -40,9 +40,7 @@ test("gerencia empresa, vaga e candidatura com persistência no PostgreSQL", asy
   const applicationCard = page
     .locator(".application-card")
     .filter({ has: page.getByRole("heading", { name: job, exact: true }) });
-  await applicationCard
-    .getByRole("button", { name: "Ver detalhes" })
-    .click();
+  await applicationCard.getByRole("button", { name: "Ver detalhes" }).click();
   await page.getByLabel("Etapa do processo").selectOption("triagem");
   await page.getByRole("button", { name: "Salvar alterações" }).click();
   await expect(page.getByRole("heading", { name: job })).toBeVisible();
