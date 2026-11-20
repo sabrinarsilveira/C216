@@ -1,11 +1,9 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
-from app.models.career import Company, Job
 from app.schemas.career import (
     ApplicationCreate,
     ApplicationRead,
@@ -34,18 +32,15 @@ def companies(db: DbSession):
 def add_company(data: CompanyCreate, db: DbSession):
     try:
         return career.create_company(db, data)
-    except IntegrityError as error:
-        db.rollback()
-        raise HTTPException(
-            status_code=409, detail="Esta empresa já está cadastrada."
-        ) from error
+    except career.ResourceConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @router.get("/companies/{company_id}", response_model=CompanyRead)
 def company(company_id: int, db: DbSession):
     result = career.get_company(db, company_id)
     if not result:
-        raise HTTPException(status_code=404, detail="Company not found.")
+        raise HTTPException(status_code=404, detail="Empresa não encontrada.")
     return result
 
 
@@ -53,29 +48,22 @@ def company(company_id: int, db: DbSession):
 def edit_company(company_id: int, data: CompanyUpdate, db: DbSession):
     result = career.get_company(db, company_id)
     if not result:
-        raise HTTPException(status_code=404, detail="Company not found.")
+        raise HTTPException(status_code=404, detail="Empresa não encontrada.")
     try:
         return career.update_company(db, result, data)
-    except IntegrityError as error:
-        db.rollback()
-        raise HTTPException(
-            status_code=409, detail="A company with this name already exists."
-        ) from error
+    except career.ResourceConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @router.delete("/companies/{company_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_company(company_id: int, db: DbSession):
     result = career.get_company(db, company_id)
     if not result:
-        raise HTTPException(status_code=404, detail="Company not found.")
+        raise HTTPException(status_code=404, detail="Empresa não encontrada.")
     try:
         career.delete_company(db, result)
-    except IntegrityError as error:
-        db.rollback()
-        raise HTTPException(
-            status_code=409,
-            detail="Cannot delete a company with applications linked to its jobs.",
-        ) from error
+    except career.ResourceConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @router.get("/jobs/", response_model=list[JobRead])
@@ -85,16 +73,17 @@ def jobs(db: DbSession):
 
 @router.post("/jobs/", response_model=JobRead, status_code=status.HTTP_201_CREATED)
 def add_job(data: JobCreate, db: DbSession):
-    if not db.get(Company, data.company_id):
-        raise HTTPException(status_code=404, detail="Empresa não encontrada.")
-    return career.create_job(db, data)
+    try:
+        return career.create_job(db, data)
+    except career.ResourceNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
 
 
 @router.get("/jobs/{job_id}", response_model=JobRead)
 def job(job_id: int, db: DbSession):
     result = career.get_job(db, job_id)
     if not result:
-        raise HTTPException(status_code=404, detail="Job not found.")
+        raise HTTPException(status_code=404, detail="Vaga não encontrada.")
     return result
 
 
@@ -102,28 +91,24 @@ def job(job_id: int, db: DbSession):
 def edit_job(job_id: int, data: JobUpdate, db: DbSession):
     result = career.get_job(db, job_id)
     if not result:
-        raise HTTPException(status_code=404, detail="Job not found.")
-    if data.company_id is not None and not db.get(Company, data.company_id):
-        raise HTTPException(status_code=404, detail="Company not found.")
+        raise HTTPException(status_code=404, detail="Vaga não encontrada.")
     try:
         return career.update_job(db, result, data)
-    except IntegrityError as error:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="Could not update job.") from error
+    except career.ResourceNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except career.ResourceConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @router.delete("/jobs/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_job(job_id: int, db: DbSession):
     result = career.get_job(db, job_id)
     if not result:
-        raise HTTPException(status_code=404, detail="Job not found.")
+        raise HTTPException(status_code=404, detail="Vaga não encontrada.")
     try:
         career.delete_job(db, result)
-    except IntegrityError as error:
-        db.rollback()
-        raise HTTPException(
-            status_code=409, detail="Cannot delete a job with applications."
-        ) from error
+    except career.ResourceConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @router.get("/applications/", response_model=list[ApplicationRead])
@@ -137,9 +122,10 @@ def applications(db: DbSession):
     status_code=status.HTTP_201_CREATED,
 )
 def add_application(data: ApplicationCreate, db: DbSession):
-    if not db.get(Job, data.job_id):
-        raise HTTPException(status_code=404, detail="Vaga não encontrada.")
-    return career.create_application(db, data)
+    try:
+        return career.create_application(db, data)
+    except career.ResourceNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
 
 
 @router.get("/applications/{application_id}", response_model=ApplicationRead)

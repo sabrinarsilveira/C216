@@ -32,12 +32,12 @@ Os testes E2E também cobrem edição e exclusão de empresas e vagas, além do 
 ## Tecnologias e arquitetura
 
 - **Frontend:** React 19, JavaScript, Vite, Tailwind CSS e Biome.
-- **API:** Python 3.12, FastAPI, Pydantic, arquitetura separada em rotas, serviços, schemas e models.
+- **API:** Python 3.12, FastAPI, Pydantic, arquitetura separada em rotas, serviços, repositórios, schemas e models.
 - **Persistência:** PostgreSQL 16, SQLAlchemy e Alembic.
 - **Infraestrutura:** Docker Compose com serviços de banco, API e interface.
 - **Qualidade:** Pytest, Vitest, Testing Library, Playwright e GitHub Actions.
 
-A interface consome a API REST em `/api`. A API aplica as regras no serviço de candidaturas e persiste os registros e o histórico em tabelas relacionais. As migrações são executadas quando o contêiner da API inicia.
+A interface consome a API REST em `/api`. As rotas tratam HTTP, os serviços aplicam regras de negócio e os repositórios encapsulam consultas e operações SQLAlchemy. Registros e histórico ficam em tabelas relacionais. As migrações são executadas quando o contêiner da API inicia.
 
 ## Estrutura
 
@@ -45,6 +45,7 @@ A interface consome a API REST em `/api`. A API aplica as regras no serviço de 
 backend/
   app/
     api/routes/       # endpoints REST
+    repositories/     # consultas e persistência SQLAlchemy
     models/           # empresa, vaga, candidatura e histórico
     schemas/          # validação e contratos da API
     services/         # regras de negócio e consultas

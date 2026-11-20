@@ -1,9 +1,10 @@
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from app.models.career import Application, ApplicationHistory, Company, Job
+from app.repositories import career as repository
 from app.schemas.career import (
     ApplicationCreate,
     ApplicationStatus,
@@ -22,98 +23,113 @@ ALLOWED_TRANSITIONS = {
 }
 
 
+class ResourceNotFoundError(Exception):
+    pass
+
+
+class ResourceConflictError(Exception):
+    pass
+
+
 def now() -> datetime:
     return datetime.now(UTC)
 
 
 def list_companies(db: Session):
-    return db.scalars(select(Company).order_by(Company.name)).all()
+    return repository.list_companies(db)
+
+
+def get_company(db: Session, company_id: int):
+    return repository.get_company(db, company_id)
 
 
 def create_company(db: Session, data: CompanyCreate):
     company = Company(**data.model_dump())
-    db.add(company)
-    db.commit()
-    db.refresh(company)
+    try:
+        repository.add_company(db, company)
+        db.commit()
+        db.refresh(company)
+    except IntegrityError as error:
+        db.rollback()
+        raise ResourceConflictError("Esta empresa já está cadastrada.") from error
     return company
 
 
-def get_company(db: Session, company_id: int):
-    return db.get(Company, company_id)
-
-
 def update_company(db: Session, company: Company, data):
-    for key, value in data.model_dump(exclude_unset=True).items():
-        setattr(company, key, value)
-    db.commit()
-    db.refresh(company)
+    try:
+        repository.update_company(db, company, data.model_dump(exclude_unset=True))
+        db.commit()
+        db.refresh(company)
+    except IntegrityError as error:
+        db.rollback()
+        raise ResourceConflictError("Já existe uma empresa com esse nome.") from error
     return company
 
 
 def delete_company(db: Session, company: Company):
-    db.delete(company)
-    db.commit()
+    try:
+        repository.delete_company(db, company)
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        raise ResourceConflictError(
+            "Não é possível excluir uma empresa com candidaturas vinculadas."
+        ) from error
 
 
 def list_jobs(db: Session):
-    statement = (
-        select(Job).options(joinedload(Job.company)).order_by(Job.created_at.desc())
-    )
-    return db.scalars(statement).unique().all()
-
-
-def create_job(db: Session, data: JobCreate):
-    job = Job(**data.model_dump(), created_at=now())
-    db.add(job)
-    db.commit()
-    db.refresh(job)
-    return db.scalar(
-        select(Job).options(joinedload(Job.company)).where(Job.id == job.id)
-    )
+    return repository.list_jobs(db)
 
 
 def get_job(db: Session, job_id: int):
-    statement = select(Job).options(joinedload(Job.company)).where(Job.id == job_id)
-    return db.scalar(statement)
+    return repository.get_job(db, job_id)
+
+
+def create_job(db: Session, data: JobCreate):
+    if not repository.get_company(db, data.company_id):
+        raise ResourceNotFoundError("Empresa não encontrada.")
+    job = Job(**data.model_dump(), created_at=now())
+    repository.add_job(db, job)
+    db.commit()
+    return repository.get_job(db, job.id)
 
 
 def update_job(db: Session, job: Job, data):
-    for key, value in data.model_dump(exclude_unset=True).items():
-        setattr(job, key, value)
-    db.commit()
-    return get_job(db, job.id)
+    values = data.model_dump(exclude_unset=True)
+    company_id = values.get("company_id")
+    if company_id is not None and not repository.get_company(db, company_id):
+        raise ResourceNotFoundError("Empresa não encontrada.")
+    try:
+        repository.update_job(db, job, values)
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        raise ResourceConflictError("Não foi possível atualizar a vaga.") from error
+    return repository.get_job(db, job.id)
 
 
 def delete_job(db: Session, job: Job):
-    db.delete(job)
-    db.commit()
+    try:
+        repository.delete_job(db, job)
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        raise ResourceConflictError(
+            "Não é possível excluir uma vaga com candidaturas."
+        ) from error
 
 
 def list_applications(db: Session):
-    statement = (
-        select(Application)
-        .options(
-            joinedload(Application.job).joinedload(Job.company),
-            selectinload(Application.history),
-        )
-        .order_by(Application.last_updated.desc())
-    )
-    return db.scalars(statement).unique().all()
+    return repository.list_applications(db)
 
 
 def get_application(db: Session, application_id: int):
-    statement = (
-        select(Application)
-        .options(
-            joinedload(Application.job).joinedload(Job.company),
-            selectinload(Application.history),
-        )
-        .where(Application.id == application_id)
-    )
-    return db.scalar(statement)
+    return repository.get_application(db, application_id)
 
 
 def create_application(db: Session, data: ApplicationCreate):
+    if not repository.get_job(db, data.job_id):
+        raise ResourceNotFoundError("Vaga não encontrada.")
     timestamp = now()
     application = Application(
         **data.model_dump(),
@@ -128,9 +144,9 @@ def create_application(db: Session, data: ApplicationCreate):
             changed_at=timestamp,
         )
     )
-    db.add(application)
+    repository.add_application(db, application)
     db.commit()
-    return get_application(db, application.id)
+    return repository.get_application(db, application.id)
 
 
 def update_application(db: Session, application: Application, data: ApplicationUpdate):
@@ -158,32 +174,20 @@ def update_application(db: Session, application: Application, data: ApplicationU
     for key, value in values.items():
         setattr(application, key, value)
     application.last_updated = now()
+    repository.save_application(db, application)
     db.commit()
-    return get_application(db, application.id)
+    return repository.get_application(db, application.id)
 
 
 def delete_application(db: Session, application: Application):
-    db.delete(application)
+    repository.delete_application(db, application)
     db.commit()
 
 
 def dashboard(db: Session):
-    rows = db.execute(
-        select(Application.status, func.count(Application.id)).group_by(
-            Application.status
-        )
-    ).all()
-    counts = {status: count for status, count in rows}
+    counts = repository.count_applications_by_status(db)
     total = sum(counts.values())
-    stale = (
-        db.scalar(
-            select(func.count(Application.id)).where(
-                Application.status.notin_(["aprovado", "reprovado"]),
-                Application.last_updated < now() - timedelta(days=7),
-            )
-        )
-        or 0
-    )
+    stale = repository.count_stale_applications(db, now() - timedelta(days=7))
     return {
         "total": total,
         "aprovados": counts.get("aprovado", 0),
