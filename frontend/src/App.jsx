@@ -4,11 +4,15 @@ import {
   createCompany,
   createJob,
   deleteApplication,
+  deleteCompany,
+  deleteJob,
   getApplications,
   getCompanies,
   getDashboard,
   getJobs,
   updateApplication,
+  updateCompany,
+  updateJob,
 } from "./services/career";
 
 const STAGES = [
@@ -97,16 +101,31 @@ export default function App() {
         `${j.title} ${j.company.name}`.toLocaleLowerCase("pt-BR").includes(q),
     );
   }, [jobs, query]);
+  const filteredCompanies = useMemo(() => {
+    const q = query.trim().toLocaleLowerCase("pt-BR");
+    return companies.filter(
+      (company) => !q || company.name.toLocaleLowerCase("pt-BR").includes(q),
+    );
+  }, [companies, query]);
 
   async function save(values) {
     if (modal.type === "company") await createCompany(values);
+    if (modal.type === "company-edit")
+      await updateCompany(modal.item.id, values);
     if (modal.type === "job") await createJob(values);
+    if (modal.type === "job-edit") await updateJob(modal.item.id, values);
     if (modal.type === "application") await createApplication(values);
     if (modal.type === "edit") await updateApplication(modal.item.id, values);
     await refresh();
     setModal(null);
     setToast(
-      modal.type === "edit" ? "Candidatura atualizada" : "Cadastro salvo",
+      modal.type === "edit"
+        ? "Candidatura atualizada"
+        : modal.type === "company-edit"
+          ? "Empresa atualizada"
+          : modal.type === "job-edit"
+            ? "Vaga atualizada"
+            : "Cadastro salvo",
     );
   }
   async function remove(item) {
@@ -122,6 +141,33 @@ export default function App() {
       setToast("Candidatura excluída");
     } catch (e) {
       setError(e.message);
+    }
+  }
+
+  async function removeCompany(company) {
+    if (
+      !window.confirm(
+        `Excluir a empresa ${company.name} e as vagas sem candidaturas vinculadas?`,
+      )
+    )
+      return;
+    try {
+      await deleteCompany(company.id);
+      await refresh();
+      setToast("Empresa excluida");
+    } catch (reason) {
+      setError(reason.message);
+    }
+  }
+
+  async function removeJob(job) {
+    if (!window.confirm(`Excluir a vaga ${job.title}?`)) return;
+    try {
+      await deleteJob(job.id);
+      await refresh();
+      setToast("Vaga excluida");
+    } catch (reason) {
+      setError(reason.message);
     }
   }
 
@@ -155,6 +201,15 @@ export default function App() {
             <span>Vagas</span>
             <span className="nav-count">{jobs.length}</span>
           </button>
+          <button
+            type="button"
+            className={`nav-item ${view === "companies" ? "active" : ""}`}
+            onClick={() => setView("companies")}
+          >
+            <GridIcon />
+            <span>Empresas</span>
+            <span className="nav-count">{companies.length}</span>
+          </button>
         </nav>
         <div className="sidebar-bottom">
           <div className="profile-avatar">S</div>
@@ -171,7 +226,13 @@ export default function App() {
           <div className="breadcrumbs">
             <span>Meu espaço</span>
             <span className="crumb-sep">/</span>
-            <strong>{view === "jobs" ? "Vagas" : "Visão geral"}</strong>
+            <strong>
+              {view === "jobs"
+                ? "Vagas"
+                : view === "companies"
+                  ? "Empresas"
+                  : "Visão geral"}
+            </strong>
           </div>
           <div className="topbar-right">
             <span className="today-label">
@@ -201,12 +262,18 @@ export default function App() {
                 <span className="eyebrow-line" /> SUA BUSCA, NO SEU RITMO
               </div>
               <h1>
-                {view === "jobs" ? "Suas vagas" : "Acompanhe seu caminho."}
+                {view === "jobs"
+                  ? "Suas vagas"
+                  : view === "companies"
+                    ? "Suas empresas"
+                    : "Acompanhe seu caminho."}
               </h1>
               <p className="welcome-subtitle">
                 {view === "jobs"
-                  ? "Empresas e oportunidades que estão no seu radar."
-                  : "Cada candidatura é um passo. Veja como as coisas estão andando."}
+                  ? "Empresas e oportunidades que estao no seu radar."
+                  : view === "companies"
+                    ? "Organize as empresas do seu caminho profissional."
+                    : "Cada candidatura e um passo. Veja como as coisas estao andando."}
               </p>
             </div>
             <div className="header-actions">
@@ -272,11 +339,19 @@ export default function App() {
           </section>
           <section className="section-heading">
             <div>
-              <h2>{view === "jobs" ? "Oportunidades" : "Seu pipeline"}</h2>
+              <h2>
+                {view === "jobs"
+                  ? "Oportunidades"
+                  : view === "companies"
+                    ? "Empresas"
+                    : "Seu pipeline"}
+              </h2>
               <span className="section-count">
                 {view === "jobs"
                   ? `${filteredJobs.length} vagas`
-                  : `${filteredApps.length} candidaturas`}
+                  : view === "companies"
+                    ? `${filteredCompanies.length} empresas`
+                    : `${filteredApps.length} candidaturas`}
               </span>
             </div>
             <div className="toolbar">
@@ -305,7 +380,19 @@ export default function App() {
               Carregando seu espaço...
             </div>
           ) : view === "jobs" ? (
-            <Jobs jobs={filteredJobs} onAdd={() => setModal({ type: "job" })} />
+            <Jobs
+              jobs={filteredJobs}
+              onAdd={() => setModal({ type: "job" })}
+              onEdit={(item) => setModal({ type: "job-edit", item })}
+              onDelete={removeJob}
+            />
+          ) : view === "companies" ? (
+            <Companies
+              companies={filteredCompanies}
+              onAdd={() => setModal({ type: "company" })}
+              onEdit={(item) => setModal({ type: "company-edit", item })}
+              onDelete={removeCompany}
+            />
           ) : (
             <Pipeline
               apps={filteredApps}
@@ -472,7 +559,7 @@ function ApplicationCard({ item, onOpen, onDelete }) {
     </article>
   );
 }
-function Jobs({ jobs, onAdd }) {
+function Jobs({ jobs, onAdd, onEdit, onDelete }) {
   if (!jobs.length)
     return (
       <div className="empty-jobs">
@@ -524,8 +611,79 @@ function Jobs({ jobs, onAdd }) {
               Ver descrição da vaga ↗
             </a>
           )}
+          <div className="job-card-actions">
+            <button
+              type="button"
+              aria-label={`Editar vaga ${job.title}`}
+              onClick={() => onEdit(job)}
+            >
+              Editar
+            </button>
+            <button
+              type="button"
+              aria-label={`Excluir vaga ${job.title}`}
+              onClick={() => onDelete(job)}
+            >
+              Excluir
+            </button>
+          </div>
           <div className="job-card-footer">
             Criada em {dateLabel(job.created_at)}
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function Companies({ companies, onAdd, onEdit, onDelete }) {
+  if (!companies.length)
+    return (
+      <div className="empty-jobs">
+        <h3>Nenhuma empresa cadastrada.</h3>
+        <p>Cadastre uma empresa para organizar suas oportunidades.</p>
+        <button type="button" className="button button-primary" onClick={onAdd}>
+          Adicionar empresa
+        </button>
+      </div>
+    );
+  return (
+    <div className="jobs-grid">
+      {companies.map((company) => (
+        <article className="job-card company-card" key={company.id}>
+          <div className="job-card-top">
+            <span className="company-avatar company-inscrito">
+              {initials(company.name)}
+            </span>
+            <span className="job-mode">Empresa</span>
+          </div>
+          <h3>{company.name}</h3>
+          {company.website && (
+            <a
+              className="job-link"
+              href={company.website}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Visitar site
+            </a>
+          )}
+          {company.notes && <p className="job-description">{company.notes}</p>}
+          <div className="job-card-actions">
+            <button
+              type="button"
+              aria-label={`Editar empresa ${company.name}`}
+              onClick={() => onEdit(company)}
+            >
+              Editar
+            </button>
+            <button
+              type="button"
+              aria-label={`Excluir empresa ${company.name}`}
+              onClick={() => onDelete(company)}
+            >
+              Excluir
+            </button>
           </div>
         </article>
       ))}
@@ -537,16 +695,24 @@ function Modal({ modal, jobs, companies, onClose, onSave }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const item = modal.item;
+  const isCompany = modal.type === "company" || modal.type === "company-edit";
+  const isJob = modal.type === "job" || modal.type === "job-edit";
   const title = {
     company: "Nova empresa",
+    "company-edit": "Editar empresa",
     job: "Adicionar uma vaga",
+    "job-edit": "Editar vaga",
     application: "Nova candidatura",
     edit: "Detalhes da candidatura",
   }[modal.type];
   const sub =
     modal.type === "edit"
-      ? `${item.job.company.name} · ${item.job.title}`
-      : "Organize os detalhes e acompanhe o próximo passo.";
+      ? `${item.job.company.name} - ${item.job.title}`
+      : modal.type === "company-edit"
+        ? item.name
+        : modal.type === "job-edit"
+          ? `${item.company.name} - ${item.title}`
+          : "Organize the details and next step.";
   async function submit(event) {
     event.preventDefault();
     setSaving(true);
@@ -554,8 +720,11 @@ function Modal({ modal, jobs, companies, onClose, onSave }) {
     const values = Object.fromEntries(
       new FormData(event.currentTarget).entries(),
     );
-    if (modal.type === "company") values.website ||= null;
-    if (modal.type === "job") {
+    if (isCompany) {
+      values.website ||= null;
+      values.notes ||= null;
+    }
+    if (isJob) {
       values.company_id = Number(values.company_id);
       values.salary_range ||= null;
       values.url ||= null;
@@ -605,28 +774,42 @@ function Modal({ modal, jobs, companies, onClose, onSave }) {
         <h2 id="modal-title">{title}</h2>
         <p className="modal-subtitle">{sub}</p>
         <form className="modal-form" onSubmit={submit}>
-          {modal.type === "company" && (
+          {isCompany && (
             <>
               <Field
                 label="Nome da empresa"
                 name="name"
                 required
+                defaultValue={item?.name}
                 placeholder="Ex.: Estúdio Aurora"
               />
               <Field
                 label="Site"
                 name="website"
                 type="url"
+                defaultValue={item?.website ?? ""}
                 placeholder="https://empresa.com.br"
               />
+              <label className="field">
+                <span>Observacoes</span>
+                <textarea
+                  name="notes"
+                  rows="3"
+                  defaultValue={item?.notes ?? ""}
+                />
+              </label>
             </>
           )}
-          {modal.type === "job" && (
+          {isJob && (
             <>
               {companies.length ? (
                 <label className="field">
                   <span>Empresa</span>
-                  <select name="company_id" required defaultValue="">
+                  <select
+                    name="company_id"
+                    required
+                    defaultValue={item?.company_id ?? ""}
+                  >
                     <option value="" disabled>
                       Selecione uma empresa
                     </option>
@@ -647,12 +830,16 @@ function Modal({ modal, jobs, companies, onClose, onSave }) {
                 label="Cargo"
                 name="title"
                 required
+                defaultValue={item?.title}
                 placeholder="Ex.: Product Designer"
               />
               <div className="form-row">
                 <label className="field">
                   <span>Modelo</span>
-                  <select name="work_mode" defaultValue="remoto">
+                  <select
+                    name="work_mode"
+                    defaultValue={item?.work_mode ?? "remoto"}
+                  >
                     <option value="remoto">Remoto</option>
                     <option value="hibrido">Híbrido</option>
                     <option value="presencial">Presencial</option>
@@ -661,7 +848,7 @@ function Modal({ modal, jobs, companies, onClose, onSave }) {
                 <Field
                   label="Localidade"
                   name="location"
-                  defaultValue="Remoto"
+                  defaultValue={item?.location ?? "Remoto"}
                   required
                   placeholder="São Paulo, SP"
                 />
@@ -670,12 +857,14 @@ function Modal({ modal, jobs, companies, onClose, onSave }) {
                 <Field
                   label="Faixa salarial"
                   name="salary_range"
+                  defaultValue={item?.salary_range ?? ""}
                   placeholder="R$ 6.000–8.000"
                 />
                 <Field
                   label="Link da vaga"
                   name="url"
                   type="url"
+                  defaultValue={item?.url ?? ""}
                   placeholder="https://..."
                 />
               </div>
@@ -684,6 +873,7 @@ function Modal({ modal, jobs, companies, onClose, onSave }) {
                 <textarea
                   name="description"
                   rows="3"
+                  defaultValue={item?.description ?? ""}
                   placeholder="Anotações sobre a vaga"
                 />
               </label>
@@ -823,7 +1013,7 @@ function Modal({ modal, jobs, companies, onClose, onSave }) {
               className="button button-primary"
               disabled={
                 saving ||
-                (modal.type === "job" && !companies.length) ||
+                (isJob && !companies.length) ||
                 (modal.type === "application" && !jobs.length)
               }
             >

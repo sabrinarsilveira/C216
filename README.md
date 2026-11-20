@@ -12,6 +12,23 @@ Aplicação full-stack para organizar a busca por oportunidades de trabalho. A T
 - Dashboard com candidaturas totais, em andamento, aprovadas e paradas há mais de sete dias.
 - Busca por empresa ou cargo, agendamento de entrevista e observações por candidatura.
 
+## CRUD, regras e API
+
+Empresas e vagas podem ser cadastradas, listadas, consultadas, editadas e excluídas. Uma empresa ou vaga vinculada a candidaturas não pode ser excluída; a API responde com conflito (HTTP 409). As candidaturas também oferecem operações de cadastro, consulta, edição e exclusão.
+
+Os endpoints ficam sob o prefixo `/api`:
+
+| Recurso | Endpoints |
+| --- | --- |
+| Empresas | `GET/POST /companies/`, `GET/PATCH/DELETE /companies/{id}` |
+| Vagas | `GET/POST /jobs/`, `GET/PATCH/DELETE /jobs/{id}` |
+| Candidaturas | `GET/POST /applications/`, `GET/PATCH/DELETE /applications/{id}` |
+| Dashboard | `GET /dashboard/` |
+
+A API rejeita transições de status inválidas, registra no histórico cada mudança de etapa e sua observação, e impede que a data da entrevista seja anterior à candidatura. A exclusão de vaga ou empresa com candidaturas associadas é bloqueada para preservar os vínculos.
+
+Os testes E2E também cobrem edição e exclusão de empresas e vagas, além do fluxo de candidatura e da persistência após recarregar a página.
+
 ## Tecnologias e arquitetura
 
 - **Frontend:** React 19, JavaScript, Vite, Tailwind CSS e Biome.

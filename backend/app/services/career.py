@@ -38,6 +38,23 @@ def create_company(db: Session, data: CompanyCreate):
     return company
 
 
+def get_company(db: Session, company_id: int):
+    return db.get(Company, company_id)
+
+
+def update_company(db: Session, company: Company, data):
+    for key, value in data.model_dump(exclude_unset=True).items():
+        setattr(company, key, value)
+    db.commit()
+    db.refresh(company)
+    return company
+
+
+def delete_company(db: Session, company: Company):
+    db.delete(company)
+    db.commit()
+
+
 def list_jobs(db: Session):
     statement = (
         select(Job).options(joinedload(Job.company)).order_by(Job.created_at.desc())
@@ -53,6 +70,23 @@ def create_job(db: Session, data: JobCreate):
     return db.scalar(
         select(Job).options(joinedload(Job.company)).where(Job.id == job.id)
     )
+
+
+def get_job(db: Session, job_id: int):
+    statement = select(Job).options(joinedload(Job.company)).where(Job.id == job_id)
+    return db.scalar(statement)
+
+
+def update_job(db: Session, job: Job, data):
+    for key, value in data.model_dump(exclude_unset=True).items():
+        setattr(job, key, value)
+    db.commit()
+    return get_job(db, job.id)
+
+
+def delete_job(db: Session, job: Job):
+    db.delete(job)
+    db.commit()
 
 
 def list_applications(db: Session):

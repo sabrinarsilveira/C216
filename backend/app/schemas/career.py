@@ -32,6 +32,22 @@ class CompanyRead(CompanyCreate):
     id: int
 
 
+class CompanyUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    website: str | None = Field(default=None, max_length=255)
+    notes: str | None = Field(default=None, max_length=500)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def clean_optional_name(cls, value: str | None) -> str | None:
+        if value is None:
+            raise ValueError("Company name cannot be empty.")
+        cleaned = value.strip() if isinstance(value, str) else value
+        if isinstance(cleaned, str) and not cleaned:
+            raise ValueError("Company name cannot be empty.")
+        return cleaned
+
+
 class JobCreate(BaseModel):
     company_id: int
     title: str = Field(min_length=2, max_length=150)
@@ -54,6 +70,33 @@ class JobRead(JobCreate):
     model_config = ConfigDict(from_attributes=True)
     id: int
     company: CompanyRead
+
+
+class JobUpdate(BaseModel):
+    company_id: int | None = None
+    title: str | None = Field(default=None, min_length=2, max_length=150)
+    location: str | None = Field(default=None, min_length=2, max_length=120)
+    work_mode: str | None = Field(default=None, pattern="^(remoto|hibrido|presencial)$")
+    salary_range: str | None = Field(default=None, max_length=100)
+    url: str | None = Field(default=None, max_length=500)
+    description: str | None = None
+
+    @field_validator("company_id", mode="before")
+    @classmethod
+    def require_company_id(cls, value: int | None) -> int | None:
+        if value is None:
+            raise ValueError("Company cannot be empty.")
+        return value
+
+    @field_validator("title", "location", mode="before")
+    @classmethod
+    def clean_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            raise ValueError("This field cannot be empty.")
+        cleaned = value.strip() if isinstance(value, str) else value
+        if isinstance(cleaned, str) and not cleaned:
+            raise ValueError("This field cannot be empty.")
+        return cleaned
 
 
 class ApplicationCreate(BaseModel):

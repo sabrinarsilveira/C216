@@ -888,6 +888,26 @@ a {
   color: #61785a;
   margin-top: 10px;
 }
+.job-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding: 10px 0 8px;
+}
+.job-card-actions button {
+  border: 1px solid #e7e8e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #65745c;
+  padding: 6px 9px;
+  font:
+    600 9px Manrope,
+    sans-serif;
+  cursor: pointer;
+}
+.job-card-actions button:hover {
+  background: #f4f6f0;
+}
 .job-card-footer {
   border-top: 1px solid #f1f0eb;
   margin-top: auto;

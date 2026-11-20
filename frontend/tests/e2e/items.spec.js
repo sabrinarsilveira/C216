@@ -1,4 +1,4 @@
-﻿import { expect, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 const unique = (prefix) => `${prefix}-${Date.now()}`;
 
@@ -13,7 +13,7 @@ test("gerencia empresa, vaga e candidatura com persistência no PostgreSQL", asy
     page.getByRole("heading", { name: "Acompanhe seu caminho." }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Empresa" }).click();
+  await page.getByRole("button", { name: "+ Empresa", exact: true }).click();
   await page.getByLabel(/Nome da empresa/).fill(company);
   await page.getByRole("button", { name: "Salvar" }).click();
   await expect(page.getByRole("status")).toContainText("Cadastro salvo");
@@ -45,6 +45,38 @@ test("gerencia empresa, vaga e candidatura com persistência no PostgreSQL", asy
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Excluir candidatura" }).click();
   await expect(page.getByRole("heading", { name: job })).not.toBeVisible();
+
+  const updatedJob = `${job} Senior`;
+  await page.getByRole("button", { name: /^Vagas/ }).click();
+  await page.getByRole("button", { name: `Editar vaga ${job}` }).click();
+  await page.locator('input[name="title"]').fill(updatedJob);
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByRole("heading", { name: updatedJob })).toBeVisible();
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("button", { name: `Excluir vaga ${updatedJob}` })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: updatedJob }),
+  ).not.toBeVisible();
+
+  const updatedCompany = `${company} Group`;
+  await page.getByRole("button", { name: /^Empresas/ }).click();
+  await page.getByRole("button", { name: `Editar empresa ${company}` }).click();
+  await page.getByLabel(/Nome da empresa/).fill(updatedCompany);
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(
+    page.getByRole("heading", { name: updatedCompany }),
+  ).toBeVisible();
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("button", { name: `Excluir empresa ${updatedCompany}` })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: updatedCompany }),
+  ).not.toBeVisible();
 });
 
 test("API libera preflight CORS para a interface web", async ({ page }) => {

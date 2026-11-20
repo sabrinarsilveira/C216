@@ -35,6 +35,13 @@ export const getDashboard = () => request("/dashboard/");
 export const createCompany = (data) =>
   request("/companies/", json("POST", data));
 export const createJob = (data) => request("/jobs/", json("POST", data));
+export const updateCompany = (id, data) =>
+  request(`/companies/${id}`, json("PATCH", data));
+export const deleteCompany = (id) =>
+  request(`/companies/${id}`, { method: "DELETE" });
+export const updateJob = (id, data) =>
+  request(`/jobs/${id}`, json("PATCH", data));
+export const deleteJob = (id) => request(`/jobs/${id}`, { method: "DELETE" });
 export const createApplication = (data) =>
   request("/applications/", json("POST", data));
 export const updateApplication = (id, data) =>
