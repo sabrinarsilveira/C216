@@ -398,7 +398,6 @@ export default function App() {
               apps={filteredApps}
               onOpen={(item) => setModal({ type: "edit", item })}
               onDelete={remove}
-              onAdd={() => setModal({ type: "application" })}
             />
           )}
           <footer className="page-footer">
@@ -440,7 +439,7 @@ function Stat({ title, value, note, tone, icon }) {
     </article>
   );
 }
-function Pipeline({ apps, onOpen, onDelete, onAdd }) {
+function Pipeline({ apps, onOpen, onDelete }) {
   return (
     <div className="kanban-scroll">
       <div className="kanban-board">
@@ -456,14 +455,6 @@ function Pipeline({ apps, onOpen, onDelete, onAdd }) {
                 <span className={`lane-dot dot-${id}`} />
                 <h3>{label}</h3>
                 <span className="column-count">{items.length}</span>
-                <button
-                  type="button"
-                  className="column-menu"
-                  onClick={onAdd}
-                  aria-label={`Adicionar candidatura ${label}`}
-                >
-                  +
-                </button>
               </div>
               <div className="column-cards">
                 {items.map((item) => (
